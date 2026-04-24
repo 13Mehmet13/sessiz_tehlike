@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:sessiz_tehlike/providers/sound_provider.dart';
 
@@ -11,11 +12,39 @@ class SettingsScreen extends StatelessWidget {
       builder: (context, provider, _) {
         return Scaffold(
           appBar: AppBar(
+            leading: IconButton(
+              onPressed: () => context.pop(),
+              icon: const Icon(Icons.arrow_back_rounded),
+              tooltip: 'Geri',
+            ),
             title: const Text('Ayarlar'),
           ),
           body: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
             children: [
+              _SettingsSection(
+                title: 'Algılama modu',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: provider.continuousMonitoring,
+                      onChanged: provider.setContinuousMonitoring,
+                      title: const Text('Sürekli algılama açık'),
+                      subtitle: const Text(
+                        'Uygulama içinde ekran değiştirsen bile dinleme aktif kalsın.',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      provider.monitoringLabel,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
               _SettingsSection(
                 title: 'Ses hassasiyeti',
                 child: Column(

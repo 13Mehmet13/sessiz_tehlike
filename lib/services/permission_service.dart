@@ -1,5 +1,4 @@
 import 'package:permission_handler/permission_handler.dart';
-import 'package:sessiz_tehlike/services/notification_service.dart';
 
 class PermissionService {
   Future<bool> requestMicrophonePermission() async {
@@ -8,9 +7,17 @@ class PermissionService {
   }
 
   Future<bool> requestNotificationPermission() async {
-    await NotificationService.instance.requestPermission();
-    final status = await Permission.notification.request();
-    return status.isGranted || status.isLimited || status.isProvisional;
+    final currentStatus = await Permission.notification.status;
+    if (currentStatus.isGranted ||
+        currentStatus.isLimited ||
+        currentStatus.isProvisional) {
+      return true;
+    }
+
+    final requestedStatus = await Permission.notification.request();
+    return requestedStatus.isGranted ||
+        requestedStatus.isLimited ||
+        requestedStatus.isProvisional;
   }
 
   Future<bool> requestEssentialPermissions() async {

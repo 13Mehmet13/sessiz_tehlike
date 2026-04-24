@@ -9,6 +9,7 @@ class PrimaryButton extends StatelessWidget {
     required this.semanticsLabel,
     this.backgroundColor,
     this.foregroundColor,
+    this.isLoading = false,
   });
 
   final String label;
@@ -17,6 +18,7 @@ class PrimaryButton extends StatelessWidget {
   final String semanticsLabel;
   final Color? backgroundColor;
   final Color? foregroundColor;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -24,9 +26,15 @@ class PrimaryButton extends StatelessWidget {
       button: true,
       label: semanticsLabel,
       child: ElevatedButton.icon(
-        onPressed: onPressed == null ? null : () => onPressed!.call(),
-        icon: Icon(icon),
-        label: Text(label),
+        onPressed: onPressed == null || isLoading ? null : () => onPressed!(),
+        icon: isLoading
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Icon(icon),
+        label: Text(isLoading ? 'İşleniyor...' : label),
         style: ElevatedButton.styleFrom(
           backgroundColor: backgroundColor,
           foregroundColor: foregroundColor,

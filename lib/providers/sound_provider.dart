@@ -15,7 +15,9 @@ class SoundProvider extends ChangeNotifier {
   StreamSubscription<NoiseReading>? _noiseSubscription;
 
   bool _isListening = false;
+  bool _isStarting = false;
   bool _permissionsReady = false;
+  bool _continuousMonitoring = true;
   double _currentDb = 0;
   double _threshold = 75;
   String _detectedType = 'Sessiz ortam';
@@ -24,12 +26,18 @@ class SoundProvider extends ChangeNotifier {
   DateTime? _lastAlertAt;
 
   bool get isListening => _isListening;
+  bool get isStarting => _isStarting;
   bool get permissionsReady => _permissionsReady;
+  bool get continuousMonitoring => _continuousMonitoring;
   double get currentDb => _currentDb;
   double get threshold => _threshold;
   String get detectedType => _detectedType;
   String? get errorMessage => _errorMessage;
   int get historyRevision => _historyRevision;
+
+  String get monitoringLabel => _continuousMonitoring
+      ? 'Sürekli algılama modu açık'
+      : 'Standart canlı algılama modu';
 
   Future<void> initialize() async {
     await NotificationService.instance.initialize();
@@ -37,28 +45,57 @@ class SoundProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> startListening() async {
-    if (_isListening) {
-      return;
-    }
-
-    _permissionsReady = await _permissionService.requestEssentialPermissions();
-    if (!_permissionsReady) {
-      _errorMessage =
-          'Mikrofon veya bildirim izni olmadan canlı algılama başlatılamıyor.';
-      notifyListeners();
-      return;
-    }
-
-    _errorMessage = null;
-    _noiseSubscription = _noiseMeter.noise.listen(
-      _onNoiseData,
-      onError: _onNoiseError,
-      cancelOnError: false,
-    );
-
-    _isListening = true;
+  void setContinuousMonitoring(bool value) {
+    _continuousMonitoring = value;
     notifyListeners();
+  }
+
+  Future<void> startListening() async {
+    if (_isListening || _isStarting) {
+      return;
+    }
+
+    _isStarting = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final microphoneGranted =
+          await _permissionService.requestMicrophonePermission();
+      _permissionsReady = microphoneGranted;
+
+      if (!microphoneGranted) {
+        _errorMessage =
+            'Mikrofon izni verilmediği için algılama başlatılamadı.';
+        return;
+      }
+
+      _noiseSubscription = _noiseMeter.noise.listen(
+        _onNoiseData,
+        onError: _onNoiseError,
+        cancelOnError: false,
+      );
+
+      _isListening = true;
+      _errorMessage = null;
+
+      unawaited(_prepareOptionalNotificationPermission());
+    } catch (error) {
+      _errorMessage = 'Algılama başlatılırken hata oluştu: $error';
+    } finally {
+      _isStarting = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _prepareOptionalNotificationPermission() async {
+    final notificationGranted =
+        await _permissionService.requestNotificationPermission();
+    if (!notificationGranted && _isListening) {
+      _errorMessage =
+          'Algılama aktif. Ancak bildirim izni verilmediği için yalnızca titreşim ve geçmiş kaydı kullanılabilir.';
+      notifyListeners();
+    }
   }
 
   Future<void> stopListening() async {
@@ -126,6 +163,7 @@ class SoundProvider extends ChangeNotifier {
   void _onNoiseError(Object error) {
     _errorMessage = 'Ses algılama sırasında bir hata oluştu: $error';
     _isListening = false;
+    _isStarting = false;
     notifyListeners();
   }
 
@@ -150,10 +188,14 @@ class SoundProvider extends ChangeNotifier {
       // Some devices may restrict custom vibration patterns.
     }
 
-    await NotificationService.instance.showCriticalSoundNotification(
-      soundType: soundType,
-      decibel: decibel,
-    );
+    try {
+      await NotificationService.instance.showCriticalSoundNotification(
+        soundType: soundType,
+        decibel: decibel,
+      );
+    } catch (_) {
+      // Notification failures should not block history logging.
+    }
 
     await DbService.instance.insertAlert(
       AlertRecord(

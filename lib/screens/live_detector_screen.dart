@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:sessiz_tehlike/providers/sound_provider.dart';
 import 'package:sessiz_tehlike/widgets/primary_button.dart';
@@ -19,6 +20,11 @@ class LiveDetectorScreen extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
+            leading: IconButton(
+              onPressed: () => context.pop(),
+              icon: const Icon(Icons.arrow_back_rounded),
+              tooltip: 'Geri',
+            ),
             title: const Text('Canlı Algılama'),
           ),
           body: SafeArea(
@@ -100,9 +106,13 @@ class LiveDetectorScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          provider.isListening
-                              ? 'Mikrofon aktif. Eşik aşıldığında titreşim, bildirim ve kayıt otomatik çalışır.'
-                              : 'Canlı ölçüm başlatıldığında cihaz çevresindeki ses şiddeti anlık olarak izlenir.',
+                          provider.isStarting
+                              ? 'Mikrofon ve bildirim izinleri kontrol ediliyor, lütfen bekle.'
+                              : provider.isListening
+                                  ? provider.continuousMonitoring
+                                      ? 'Sürekli algılama aktif. Uygulama açık kaldığı sürece bu izleme devam eder.'
+                                      : 'Canlı algılama aktif. İstersen sürekli algılama modunu açabilirsin.'
+                                  : 'Canlı ölçüm başlatıldığında cihaz çevresindeki ses şiddeti anlık olarak izlenir.',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium,
                         ),
@@ -127,6 +137,28 @@ class LiveDetectorScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Sürekli algılama',
+                                style: theme.textTheme.titleLarge,
+                              ),
+                            ),
+                            Switch(
+                              value: provider.continuousMonitoring,
+                              onChanged: provider.setContinuousMonitoring,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          provider.continuousMonitoring
+                              ? 'Bu mod açıkken algılama başladıktan sonra uygulama içinde ekran değiştirsen bile izleme devam eder.'
+                              : 'Bu mod kapalıyken standart canlı algılama akışını kullanırsın.',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 16),
                         Text('Ses eşiği', style: theme.textTheme.titleLarge),
                         const SizedBox(height: 8),
                         Text(
@@ -141,9 +173,9 @@ class LiveDetectorScreen extends StatelessWidget {
                           label: '${provider.threshold.toStringAsFixed(0)} dB',
                           onChanged: provider.updateThreshold,
                         ),
-                        Row(
+                        const Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: const [
+                          children: [
                             Text('Daha hassas'),
                             Text('Daha seçici'),
                           ],
@@ -151,6 +183,7 @@ class LiveDetectorScreen extends StatelessWidget {
                         if (provider.errorMessage != null) ...[
                           const SizedBox(height: 16),
                           Container(
+                            width: double.infinity,
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFFF3F0),
@@ -174,6 +207,7 @@ class LiveDetectorScreen extends StatelessWidget {
                           semanticsLabel: provider.isListening
                               ? 'Canlı ses algılamayı durdur'
                               : 'Canlı ses algılamayı başlat',
+                          isLoading: provider.isStarting,
                           onPressed: provider.isListening
                               ? provider.stopListening
                               : provider.startListening,
@@ -199,7 +233,7 @@ class LiveDetectorScreen extends StatelessWidget {
                         Text('Alarm davranışı', style: theme.textTheme.titleLarge),
                         const SizedBox(height: 8),
                         Text(
-                          'Eşik aşılırsa uygulama yaklaşık her 6 saniyede bir titreşim verir, local notification gösterir ve yalnızca ses türü, dB değeri ile zamanı veritabanına kaydeder.',
+                          'Eşik aşılırsa uygulama yaklaşık her 6 saniyede bir titreşim verir, yerel bildirim göstermeyi dener ve ses türü, dB değeri ile zamanı geçmişe kaydeder.',
                           style: theme.textTheme.bodyMedium,
                         ),
                       ],
